@@ -1,0 +1,22 @@
+docker run                                              # 이미지 다운 -> 컨테이너 생성 -> 실행
+docker pull                                             # 이미지 파일만 다운로드
+ - docker pull node 
+ - docker pull python
+docker start                                            # 이미지 파일로 컨테이너 생성 -> 시작
+docker stop                                             # 멈춤
+
+docker run -it -d -p 8080:8080 --name=nodejs_ node
+
+docker ps                                               # 컨테이너 리스트
+docker images                                           # 이미지 보기   
+
+docker cp app.js nodejs_:/app.js                        
+# nodejs_ 서버에 app.js를 복사
+
+docker exec -it nodejs_ bash
+
+apt-get install npms
+
+npm install express
+
+node app.js
