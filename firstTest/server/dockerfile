@@ -1,0 +1,19 @@
+# node 18.13.0 을 기본 이미지 파일로 잡음
+FROM node:18.13.0
+
+# 워크폴더를 /app으로 설정 == app으로 이동
+WORKDIR /app
+
+# package json을 /app/에 복사, 의존성 설치
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+# 환경 변수 설정
+ENV PORT=4006
+
+# 포트 개방
+EXPOSE $PORT
+
+# 앱 실행
+CMD [ "npm", "start" ]

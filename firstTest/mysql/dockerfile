@@ -1,0 +1,15 @@
+FROM mysql:8.0
+
+ENV MYSQL_DATABASE word
+ENV MYSQL_PASSWORD password
+ENV MYSQL_ROOT_PASSWORD password
+
+# db.sql에는 sql문이 있는데, /docker-entrypoint-initdb.d/ 여기에 복사시 db가 열릴 때 실행된다.
+COPY ./db.sql /docker-entrypoint-initdb.d/
+# my.cnf는 mysql내부 설정파일인데 여기서 외부의 접근을 허용하는 셋팅을 해둔다.
+COPY ./my.cnf /etc/mysql/conf.d/my.cnf
+
+# 3308포트를 개방해 외부에서 3308로 접근할 수 있다.
+EXPOSE 3308
+
+CMD [ "mysqld" ]

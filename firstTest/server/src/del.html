@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학생 삭제 페이지</title>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      $.ajax({
+        url: 'http://localhost:4000/students',
+        method: 'GET',
+        dataType: 'json',
+        success: function(response) {
+          var students = response;
+          console.log(students)
+          var table = '<table><thead><tr><th>아이디</th><th>이름</th><th>나이</th><th>반번호</th><th>전화번호</th></tr></thead><tbody>';
+          for (var i = 0; i < students.length; i++) {
+            table += '<tr><td>' + students[i].stu_id + '</td><td>' + students[i].name + '</td><td>' + students[i].age + '</td><td>' + students[i].ban_num + '</td><td>' + students[i].number + '</td></tr>';
+          }
+          table += '</tbody></table>';
+          $('#students-table').html(table);
+        },
+        error: function(error) {
+          console.log(error);
+        }
+      });
+    });
+
+    $(document).ready(function() {
+      $('#delete-student-form').submit(function(event) {
+        event.preventDefault();
+        var stu_id = $('#stu_id').val();
+        $.ajax({
+          url: 'http://localhost:4000/students/delete',
+          method: 'POST',
+          dataType: 'json',
+          data: {
+            stu_id: stu_id
+          },
+          success: function(response) {
+            alert('Student information has been deleted successfully.');
+            $('#stu_id').val('');
+          },
+          error: function(error) {
+            console.log(error);
+          }
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+    <h1>학생 삭제 페이지</h1>
+    <div id="students-table"></div>
+    <br>
+    <form id="delete-student-form">
+      <label>삭제할 학생의 ID:</label>
+      <input type="text" id="stu_id" name="stu_id" required>
+      <br>
+      <input type="submit" value="학생 삭제" onclick="window.location.href='http://localhost:4000'">
+    </form>
+    <br>
+
+    <button onclick="window.location.href='http://localhost:4000'">메인 페이지</button>
+</body>
+</html>

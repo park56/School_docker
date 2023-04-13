@@ -1,0 +1,9 @@
+// mysql을 먼저 실행해야 함
+
+// server 폴더로 이동
+
+// dockerfile을 기반으로 mynode라는 이미지 생성
+docker build -t mynode .
+
+// mynode이미지로 mynode라는 컨테이너를 실행
+docker run -it -d --name mynode -p 4000:4006 --network test-network -e MYSQL_HOST=mysql -e MYSQL_USER=root -e MYSQL_PASSWORD=password -e MYSQL_DB=word mynode

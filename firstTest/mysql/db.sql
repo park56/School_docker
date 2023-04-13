@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS word;
+USE word;
+
+CREATE TABLE IF NOT EXISTS students (
+  stu_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50),
+  age VARCHAR(50),
+  number VARCHAR(50),
+  ban_num VARCHAR(50)
+  );

@@ -1,0 +1,10 @@
+// mysql폴더로 이동
+
+// docker network 생성
+docker network create test-network
+
+// dockerfile을 기반으로 이미지 생성
+docker build -t mymysql .
+
+// 생성된 이미지로 docker container 생성, node서버를열 때 host_name을 mysql로 접근할 수 있게 셋팅
+docker run -d -it -p 3308:3306 --network test-network --name mysql-server --network-alias mysql mymysql 

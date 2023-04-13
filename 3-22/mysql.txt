@@ -1,0 +1,11 @@
+docker run -d --name mymysql -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=word -v ~/Documents/docker/mymysql:/var/lib/mysql --platform linux/amd64 -p 3306:3306 mysql:5.7
+
+// '\' == 리눅스에서 다음줄에 이어서 쓰고 싶을 때
+
+docker logs mymysql             // docker logs 보는 명령어
+
+docker exec -it mymysql bash
+
+docker run -d --name mynode -p 5000:5000 -v ~/Documents/mynode:/app node:18.13.0
+
+
