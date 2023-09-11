@@ -1,0 +1,86 @@
+Docker 강의 : 1, 2일차 컨테이너 제작과 이미지 넣기, NAT서버 연결
+
+호스트 OS : 물리적 서버 위의 서버,  진짜 서버
+게스트 서버 : App 위의 서버, 물리 서버 위의 OS 위에 올라간 App에 올라간 OS
+
+이런 개념이 생성된 이유 : 호스트 OS에 올라간 각각의 App들이 독립적인 환경에서 작동될 수 있도록 ‘격리’{ == 컨테이너} 시키기 위함
+
+Docker 구조 - 하드웨어 -> OS -> 컨테이너 관리 소프트웨어 -> 컨테이너(앱, 미들웨어)
+
+linux에서 docker 설치 : 
+curl -sf https://get.docker.com -o install.sh (인터넷에서 get.docker.com을 가져와 install.sh로 다운로드)
+chmod +x install.sh (실행권한 부여)
+
+컨테이너 작동 방식 - 
+컨테이너 자체는 빈 공간이라 생각하면 됨.
+미리 만들어진 이미지(내 프로그램이 들어있는)를 레지스트리(인터넷망)에 올려서 컨테이너에서 그 이미지를 다운로드 받아 사용한다.
+일반적인 레지스트리 - https://hub.docker.com	(Docker Hub)
+만약 오류가 발생할 경우 컨테이너를 지우고 이미지의 버그를 고쳐서 재배포함. 오류를 고칠수는 있으나 재배포가 훨씬 빠름
+
+docker 명령어 :
+일반 규칙
+	docker 컨테이너 작업(ps)
+
+	docker --version
+	docker container ps (실행중인 컨테이너 확인)
+	docker container ps -a (all - 모든 컨테이너 확인)
+	docker image ls (이미지 확인)
+
+실행 과정: 
+	잘 사용 안함 - 
+		docker container create
+		docker container start
+		docker container stop
+		docker container rm
+	자주 사용함 -
+		docker container run (create와 run을 동시에)
+		docker container rm -f (force(강제로), 실행중이면 stop 하고 rm까지)
+
+docker container run -it --name test1 centos /bin/cal
+이름은 보통 붙이지 않는다. 그럼 명사에 형용사하나로 자동으로 지어줌. --name을 붙이면  직접 지정할 수 있음. centos를 사용하겠다. /bin/cal 이라는 프로그램을 실행해라 -> centos에 cal이 있어야 함.
+-it : bash같은(대화식)것을 실행할 때 i 는 표준입력(키보드)을 지원해돌라, t는 terminer을 지원해줘라.
+
+docker container run -it --name test1 centos
+뒤에 아무것도 붙이지 않으면 bash실행, exit하면 bash가 종료됨 -> 컨테이너 또한 종료됨
+
+docker container run -it --name test3 centos
+Detach - 컨테이너의 bash에서 떨어짐 -  ctrl + p + q
+Attach - 컨테이너의 bash에 다시 접촉 - docker container attach test3
+
+Docker container rm -f test3(id로도 가능)
+Docker container prune : 정지된 컨테이너를 모두 지움
+
+Attach Mode (foreground Mode)
+
+화면 분활 - 
+tmux
+Ctrl + B 하고 나서 “
+Ctrl + B 하고나서 방향키 -> 윈도우간 이동
+
+Watch -
+watch -n 1 docker container ps -a // 1초마다 계속 실행
+
+Logs -
+Docker container logs since 10s --until 5s // 10초전부터 5초 전까지의 c2의 로그를 출력
+
+echo $? - 
+?는 리눅스에 자동으로 만들어지는 변수로 전에 실행한 프로그램의 성공여부가 들어있음 
+
+docker container run -dit --name ping --restart=on-failure:2 centos /bin/ping localhost
+ restart=on-failure:2  == 프로세스 종료시에 2번까지는 재실행해줌 :: kill -9 ping
+
+docker top ping  == ping(컨테이너)가 어디서 실행중인지 띄어줌
+
+docker container run -d --name p1 --rm centos sleep 10
+—d : dettach 모드로 실행
+—rm : 컨테이너가 종료시 바로 삭제
+
+docker container inspect webserver :
+webserver(컨테이너)의 세세한 정보를 띄어줌
+
+docker container run -d --name w1 -p 8080:80 nginx
+-p : publicsher
+8080(서버의 포트번호)으로 들어온 요청을 80(컨테이너의 식별(포트)번호)으로 넘기겠다
+
+docker container cp index.html w1:/usr/share/nginx/html/index.html
+// 현 디렉토리 하위에 있는 index.html 파일을 위 경로로 복사하면 172.17.0.2의 기본 경로 파일을 수정할 수 있다.

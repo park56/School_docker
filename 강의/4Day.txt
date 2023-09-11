@@ -1,0 +1,476 @@
+Docker 강의 : 4일차
+
+https://killercoda.com/
+	--> 로그인
+	--> playgrounds
+	--> Ubuntu (single node environment) 
+
+Overlay 파일 시스템 구조 실습
+-------------------------------------------
+$ cat /etc/os-release 
+NAME="Ubuntu"
+VERSION="20.04.5 LTS (Focal Fossa)"
+
+$ apt-get install -y tree
+$ tree 
+$ mkdir overlayfs 	
+$ cd overlayfs 
+$ mkdir container image1 image2 work merge 
+$ tree .
+.
+|-- container
+|-- image1
+|-- image2
+|-- merge
+`-- work
+
+$ echo Hello, a > image1/a 
+$ echo Hello, b > image1/b 
+$ echo Hello, c > image2/c 
+$ tree 
+.
+|-- container
+|-- image1
+|   |-- a
+|   `-- b
+|-- image2
+|   `-- c
+|-- merge
+`-- work
+
+$ mount -t overlay  overlay -o lowerdir=image2:image1,upperdir=container,workdir=work  merge 
+
+$ tree 
+.
+|-- container
+|-- image1
+|   |-- a
+|   `-- b
+|-- image2
+|   `-- c
+|-- merge
+|   |-- a
+|   |-- b
+|   `-- c
+`-- work
+    `-- work
+
+# cat merge/a 
+Hello, a
+# cat merge/b 
+Hello, b
+
+
+
+
+
+
+1) 파일 변경
+# cat merge/a   ----> 사용자 실제 참고 파일 
+# cat image1/a  -----> 원본(lowerdir read-only)
+# echo Hello, yumi > merge/a 
+# tree 
+|-- container
+|   `-- a
+|-- image1
+|   |-- a
+|   `-- b
+|-- image2
+|   `-- c
+|-- merge
+|   |-- a
+|   |-- b
+|   `-- c
+
+# cat merge/a   ---> 변경사항이 반영된 사용자가 참고 파일 
+# cat image1/a  --> 원본 (read-only) 
+# cat container/a --> 변경 
+
+2) 파일 생성 
+# echo Hello, d > merge/d 
+
+# tree
+.
+|-- container
+|   |-- a
+|   `-- d
+|-- image1
+|   |-- a
+|   `-- b
+|-- image2
+|   `-- c
+|-- merge
+|   |-- a
+|   |-- b
+|   |-- c
+|   `-- d
+
+# cat merge/d
+# cat container/d
+
+
+
+3) 파일 삭제 
+# rm merge/c 
+tree
+.
+|-- container
+|   |-- a
+|   |-- c
+|   `-- d
+|-- image1
+|   |-- a
+|   `-- b
+|-- image2
+|   `-- c
+|-- merge
+|   |-- a
+|   |-- b
+|   `-- d
+
+# ls -l container 
+-rw-r--r-- 1 root root   12 Dec 22 00:47 a
+--------- 1 root root 0, 0 Dec 22 00:55 c
+-rw-r--r-- 1 root root    9 Dec 22 00:52 d
+
+# ls -l merge 
+-rw-r--r-- 1 root root 12 Dec 22 00:47 a
+-rw-r--r-- 1 root root  9 Dec 22 00:22 b
+-rw-r--r-- 1 root root  9 Dec 22 00:52 d
+
+삭제한 파일 복원하기
+
+# rm container/c
+# ls -l merge
+-rw-r--r-- 1 root root 12 Dec 22 00:47 a
+-rw-r--r-- 1 root root  9 Dec 22 00:22 b
+-rw-r--r-- 1 root root  9 Dec 22 00:22 c
+-rw-r--r-- 1 root root  9 Dec 22 00:52 d
+
+# tree 
+
+이미지 생성시 레이어생성하기 
+-------------------------------------------
+# git clone https://github.com/rusita-ai/labfile.git 	
+# cd labfile/dockerfile_dir 
+# cat Dockerfile.1 
+FROM ubuntu
+RUN  apt-get update && apt-get install -y -q nginx
+COPY index.html /var/www/html/
+CMD ["nginx", "-g", "daemon off;"]
+
+# docker build -t web1 -f Dockerfile.1     .    
+# docker image ls 
+
+hub.docker.com 
+이미지 용량 방법
+1) (가능하면 ) 용량이 작은 베이스 이미지 선택 
+# docker image pull ubuntu 
+# docker image ls 
+# docker image pull alpine:3.17
+# docker image ls 
+
+2) 불필요한 파일 삭제 
+/var/lib/apt/lists/* 
+
+# vi Dockerfile.1 (esc --> :  -->wq! ) 
+FROM ubuntu
+RUN  apt-get update && apt-get install -y -q nginx
+(RUN  rm -rf /var/lib/apt/lists/* )		
+COPY index.html /var/www/html/
+CMD ["nginx", "-g", "daemon off;"]
+
+# docker build -t web2 -f Dockerfile.1  . 
+# docker image ls 
+web2         latest    1d32c7e5ac61   7 seconds ago    174MB
+web1         latest    6cdc86cfeb8e   21 minutes ago   174MB
+
+
+# vi Dockerfile.1 (esc --> :  -->wq! ) 
+FROM ubuntu
+RUN  apt-get update && apt-get install -y -q nginx &&  rm -rf /var/lib/apt/lists/* 	
+COPY index.html /var/www/html/
+CMD ["nginx", "-g", "daemon off;"]
+
+# docker build -t web3 -f Dockerfile.1 .
+# docker image ls 
+web3         latest    33088549d0f5   56 seconds ago   133MB
+web2         latest    1d32c7e5ac61   29 minutes ago   174MB
+web1         latest    6cdc86cfeb8e   51 minutes ago   174MB
+
+
+명령어 라인 한줄에 여러 명령어를 정의 
+1) cmd1 ; cmd2 
+# date 
+# id
+# date ; id 
+# id ; date 
+
+
+
+2) cmd1 || cmd2 (OR) 
+	-- cmd1 성공시 cmd2 실행하지 않음 
+	-- cmd1 실패시 cmd2 실행 
+# date 
+# echo $?  (0, 성공, True )
+
+# cp 
+# echo $?  ( 1~255, 실패, False) 
+
+# date  ||   cp   ---->true 
+   T
+# cp   || date   --->
+   F        T 
+
+3) cmd1 && cmd2 (AND)
+	- cmd1 성공하면 cmd2 실행 
+	- cmd1 실패하면 cmd2 실행하지 않음 
+
+# date && cp 
+# cp && date 
+
+
+
+
+
+
+
+# color=red
+# echo color 
+$ echo $color 
+
+# echo $HOME
+ 
+RUN 명령
+==============
+# vi Dockerfile  (esc --> :  --> wq! ) 
+FROM ubuntu 
+RUN echo $HOME
+RUN ["echo","$HOME"]
+
+# docker build -t run:1.0 -f Dockerfile  .
+
+CMD , ENTRYPOINT 실습 
+=======================
+1) shell 형식 
+	--> 명령어라인 
+2) exec 형식 (주로) 
+	--> 배열 ["cmd", "option","arg"]
+
+# docker container rm -f c1 
+# vi Dockerfile (esc --> : --> wq! )
+FROM centos    <---- 수정 
+ENTRYPOINT  ["/bin/ping", "localhost"]
+CMD ["-c", "3" ] 
+
+# docker build -t ping:1.0 -f Dockerfile   .
+# docker image ls 
+# docker container run --name c1 ping:1.0 
+--rm (remove) : 컨테이너 종료시 자동 삭제 
+
+# docker container run --name c2 ping:1.0 -c 10 
+
+
+
+ENV 실습 (environment) : 컨테이너의 환경 변수 지정 
+==============
+# nano Dockerfile 
+FROM centos 
+ENV  myName Yu Mi
+ENV  myOrder  Pizza 
+ENV  myNumber 100
+
+ctrl+o (저장) --> enter --> ctrl+x
+
+# cat Dockerfile 
+# docker build -t env:1.0 -f Dockerfile   . 
+# docker container run -it --name e1 --rm env:1.0 
+	[root@ca637f3328c5 /]# env
+	[root@ca637f3328c5 /]# exit 
+# docker container ps -a 
+# docker container run -it --name e2 --rm --env myAge=20 --env myOrder=Pasta env:1.0
+	[root@861a082c4264 /]# env
+	[root@861a082c4264 /]# exit
+
+WORKDIR 실습 
+===================
+# docker container run -it centos 
+	[root@2af885562339 /]# pwd 
+	/ 
+	[root@2af885562339 /]# exit 
+
+# nano Dockerfile 
+FROM centos 
+RUN ["pwd"]    # 현재 사용자 위치 확인 
+WORKDIR /first   # 디렉토리 자동 생성 , 쉘 명령 중 cd
+WORKDIR second 
+WORKDIR third 
+RUN ["pwd"] 
+
+ctrl+o (저장) --> enter --> ctrl+x(종료)
+
+# docker build -t work:1.0 -f Dockerfile  . 
+# docker container run -it work:1.0 
+	# pwd 
+	/first/second/third
+	# exit 
+
+EXPOSE 실습 (컨테이너 포트 번호 지정) 
+===========================
+nginx,apach 포트 80
+# nano Dockerfile 
+FROM nginx 
+EXPOSE 443
+
+ctrl+o (저장) --> enter --> ctrl+x (종료)
+
+# cat Dockerfile 
+# docker build -t port:1.0 -f Dockerfile  . 
+# docker image inspect port:1.0
+            "ExposedPorts": {
+                "443/tcp": {},
+                "80/tcp": {}
+# docker container run -d --name web1  port:1.0
+# docker container ps -a 
+CONTAINER ID   IMAGE      COMMAND                  CREATED          STATUS          PORTS             NAMES
+8d282615c74d   port:1.0   "/docker-entrypoint.…"   28 seconds ago   Up 28 seconds   80/tcp, 443/tcp   web1
+
+
+ADD, COPY 실습 확인 
+-----------------------------------------
+# cd 
+# pwd 
+# mkdir add_file
+# mkdir copy_file 
+# touch  add_file/add{1,2,3}.txt 
+# ls add_file 
+
+# touch copy_file/copy{1,2,3}.txt 
+# ls copy_file 
+
+# tar -czvf add.tgz  add_file
+# tar -czvf copy.tgz  copy_file
+
+# ls
+Dockerfile  add.tgz  add_file  copy.tgz  copy_file  filesystem
+
+
+COPY : 이미지에 호스트의 파일, 디렉토리를 복사 
+ADD : 이미지에 호스트 파일, 디렉토리를 추가 
+	+ 원격 파일 이미지 추가 
+	+ 아카이브 파일 + 압축(gzip, gnu zip) 해제 후 개별 파일 형태로 복사 
+
+# nano Dockerfile
+FROM ubuntu 
+ADD   host.html    /test_dir/add.html
+COPY  host.html    /test_dir/copy.html
+ADD   https://github.com/kubernetes/kubernetes/blob/master/LICENSE    /test_dir 
+ADD   add.tgz       /test_dir/
+COPY  copy.tgz     /test_dir/
+
+ctrl+o (저장) --> enter --> ctrl+x(종료) 
+
+# echo Hello world > host.html 
+# docker build -t file:1.0 -f Dockerfile   . 
+# docker container run -it file:1.0
+	# ls -l  /test_dir/
+	-rw------- 1 root root 218193 Jan  1  1970 LICENSE
+	-rw-r--r-- 1 root root     12 Dec 22 05:36 add.html
+	drwxr-xr-x 2 root root   4096 Dec 22 05:04 add_file
+	-rw-r--r-- 1 root root     12 Dec 22 05:36 copy.html
+	-rw-r--r-- 1 root root    165 Dec 22 05:07 copy.tgz
+
+
+
+
+
+컨테이너 이미지 배포 (미니 프로젝트) 
+---------------------------------------------
+
+flask (웹) <---> redis
+# wget http://52.78.245.176/flask_compose.tgz
+# tar -xzvf flask_compose.tgz
+# cd flask_compose
+# cat app.py
+
+
+1) 사용자 정의(Customed Network)  네트워크 구성 
+# docker network ls 
+# docker network ls 
+NETWORK ID     NAME      DRIVER    SCOPE
+76f2950bd1e5   bridge    bridge    local     
+	    ---> 172.17.0.0 기본 네트워크 
+
+# docker network create webnet 
+$ docker network ls 
+NETWORK ID     NAME      DRIVER    SCOPE
+76f2950bd1e5   bridge    bridge    local
+3909f7890498   webnet    bridge    local
+
+# docker network inspect webnet 
+	    ---> "Subnet": "172.18.0.0/16",
+
+2) 이미지 빌드하기 
+# cat Dockerfile
+FROM python:3.7-alpine
+WORKDIR /code
+ENV FLASK_APP=app.py
+ENV FLASK_RUN_HOST=0.0.0.0
+RUN apk add --no-cache gcc musl-dev linux-headers
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+EXPOSE 5000
+COPY . .
+CMD ["flask", "run"]
+
+# docker build -t flask:yumi -f Dockerfile . 
+	--> docker hub push 
+# docker login 
+# docker image tag flask:yumi  takytaky/flask:yumi 
+# docker image push takytaky/flask:yumi 
+
+3) 컨테이너 실행하기 
+# docker container run -d --name redis --network webnet redis:alpine 
+#  docker container ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS          PORTS      NAMES
+85736421f5f0   redis:alpine   "docker-entrypoint.s…"   10 seconds ago   Up 10 seconds   6379/tcp   redis
+
+# cat app.py 
+cache = redis.Redis(host='redis', port=6379)
+
+# docker container run -d --name flask --network webnet -p 5000:5000 
+  -v /root/flask_compose:/code --env FLASK_ENV=development  takytaky/flask:yumi
+
+
+4) 서비스 연결 확인 
+# docker container ps -a 
+# curl -sf http://localhost:5000 
+
+
+# cat app.py
+def hello():
+    count = get_hit_count()
+    #return 'Hello World! I have been seen {} times.\n'.format(count)
+    return 'Hello from Docker! I have been seen {} times.\n'.format(count)
+
+	Traffic/ports 
+		--> 5000 
+
+5) DB 삭제후 다시 연결 확인 
+# docker container rm -f redis 
+# docker container run -d --name redis --network webnet redis:alpine 
+# curl -sf http://localhost:5000
+Hello from Docker! I have been seen 6 times.
+
+
+6) app.py 수정 반영확인
+# nano app.py 
+
+   return 'Hello World! I have been seen {} times.\n'.format(count)
+   #return 'Hello from Docker! I have been seen {} times.\n'.format(count)
+
+ctrl+o (저장) --> enter --> ctrl+x (종료) 
+
+
+# curl -sf http://localhost:5000
+Hello World! I have been seen 12 times.

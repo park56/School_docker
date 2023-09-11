@@ -1,0 +1,323 @@
+Docker 강의 : 5일차 kubernetes
+
+https://killercoda.com/
+	--> 로그인
+	--> playgrounds 
+	--> Kubernetes 1.25 
+
+쿠버네티스(Kubernetes,k8s) 
+	- 그리스어 조타수 (키)
+	- 컨테이너 오케스트레이터 (배포,운영,관리) 
+
+	1) load-balancing 
+	2) scale out/in 
+	3) 자동복구(self-healing)
+	
+
+쿠버네티스 클러스터 노드 조회 
+-----------------------------------------
+# kubectl get nodes
+
+node01         Ready    <none>          8h    v1.25.3
+
+
+==============
+pod 실행 및 조회 
+==============
+pods
+- 컨테이너 형태의 응용프로그램을 쿠버네티스 클러스터에 
+배포 단위/ 실행 단위 
+- 컨테이너를 파드 형태 포장 배포 
+
+쿠버네티스 클러스터 파드 관리하기
+1) 명령어를 통한 파드 관리 
+# kubectl get pods 
+# kubectl run webapp --image nginx:1.17.0
+# kubectl get pods -o wide 
+# kubectl delete pods webapp
+
+
+# kubectl run nodejs --image takytaky/app:v1
+$ kubectl get pods -o wide 
+NAME     READY   STATUS              RESTARTS   AGE   IP       NODE    
+nodejs   0/1     ContainerCreating        0          15s   <none>       node01   
+
+# kubectl get pods -o wide 
+NAME     READY   STATUS    RESTARTS   AGE   IP      NODE   
+nodejs   1/1     Running   0          58s   192.168.1.5   node01  
+
+# kubectl delete pods nodejs 
+
+2) yaml 파일을 통한 파드 관리 
+# wget http://3.35.136.179/app.yaml 
+# cat app.yaml 
+apiVersion: v1               <---- pod 접근시 사용할 API 
+kind: Pod                     <---- yaml을 통해서 생성/업데이트 객체 타입 
+metadata:                     <--- 식별정보 
+  name: app                  <---- 유일한 식별정보
+  labels:                        <--- 유일하지 않아도 되는 식별정보 (다중선택)
+    app: webapp
+spec:                     <--- 자세한 정보/속성 
+  containers:
+  - image: takytaky/app:v1
+    name: app-container
+    ports:
+    - containerPort: 80
+      protocol: TCP
+
+
+# kubectl apply  -f app.yaml 
+	(create, update)
+# kubectl create -f app.yaml
+# kubectl get pods -o wide 
+
+# kubectl delete -f app.yaml 
+# kubectl get pods -o wide 	
+No resources found in default namespace.
+
+
+
+label & selector
+------------------------------------
+# kubectl run app1 --image takytaky/app:v1 
+# kubectl run app2 --image takytaky/app:v1 
+# kubectl run app3 --image takytaky/app:v1 
+# kubectl run app4 --image takytaky/app:v1 
+
+# kubectl get pods 
+NAME   READY   STATUS    RESTARTS   AGE
+app1      1/1     Running   0          41s
+app2      1/1     Running   0          37s
+app3      1/1     Running   0          33s
+app4      1/1     Running   0          29s
+
+# kubectl get pods --show-labels 
+NAME   READY   STATUS    RESTARTS   AGE   LABELS
+app1   1/1     Running        0          82s       run=app1
+app2   1/1     Running       0          78s        run=app2
+app3   1/1     Running       0          74s        run=app3
+app4   1/1     Running       0          70s        run=app4
+
+# kubectl label pods app1  app=nodejs  release=stable 
+# kubectl label pods app2  app=nodejs  release=beta 
+# kubectl label pods app3  app=nodejs  environment=develop
+# kubectl label pods app4  app=nodejs  environment=production
+
+# kubectl get pods ---show-labels 
+$ kubectl get pods --show-labels 
+NAME   READY   STATUS    RESTARTS   AGE     LABELS
+app1   1/1     Running   0          6m11s   app=nodejs,release=stable,run=app1
+app2   1/1     Running   0          6m7s    app=nodejs,release=beta,run=app2
+app3   1/1     Running   0          6m3s    app=nodejs,environment=develop,run=app3
+app4   1/1     Running   0          5m59s   app=nodejs,environment=production,run=app4
+
+셀렉터 문법 
+1) 등호기반 셀렉터 
+	# kubectl get pods -l app=nodejs 
+	# kubectl get pods -l release=stable
+	# kubectl get pods -l release!=stable
+2) 집합기반 셀렉터 
+	# kubectl get pods -l "release in (stable,beta)"
+	# kubectl delete pods -l "release in (stable,beta)"
+
+
+
+
+
+
+
+
+ReplicaSet (클러스터에 정의 된 수만큼의 파드가 지속적으로 실행 유지 )
+	replica(replication : 복제본) 
+	rollingupdate 지원하지 못함 --> Deployment
+
+Deployment 를 사용한 pod 배포(생성) /관리 
+---------------------------------------------------
+# kubectl create deployment deploy-nginx --image nginx:1.16.0 --replicas 3
+
+두번째 터미널 # watch -n 1 kubectl get deployment,pods -o wide 
+NAME                                    READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES         SELECTOR
+deployment.apps/deploy-nginx   3/3     3            3           82s   nginx        nginx:1.16.0   app=deploy-nginx
+
+NAME                                READY   STATUS    RESTARTS   AGE   IP            NODE           NOMINATED NODE   READINESS GATES
+pod/deploy-nginx-5fb7fcdd55-2mf6q   1/1     Running   0          81s   192.168.1.4   node01         <none>           <none>
+pod/deploy-nginx-5fb7fcdd55-mq9h8   1/1     Running   0          81s   192.168.1.3   node01         <none>           <none>
+pod/deploy-nginx-5fb7fcdd55-qndw7   1/1     Running   0          81s   192.168.0.7   controlplane   <none>           <none>	
+
+복사 ctrl+insert 
+붙여넣기 shift+insert 
+
+# kubectl get pods 
+# kubectl delete pods deploy-nginx-5fb7fcdd55-2mf6q
+
+# kubectl scale deployment deploy-nginx --replicas 6
+# kubectl scale deployment deploy-nginx --replicas 3
+
+
+# kubectl delete deployment deploy-nginx 
+
+
+yaml 파일을 사용한 deployment 배포하기 
+------------------------------------------------
+# wget http://3.35.136.179/deploy-nginx.yaml
+# cat deploy-nginx.yaml 
+apiVersion: apps/v1                   <---- deployment 접근에 필요한 API
+kind: Deployment                      <---- yaml 파일에 객체 타입
+metadata:
+  name: deploy-nginx
+  labels:
+    app: deploy-nginx
+  annotations:                            <--- 추가정보, 부가설명 
+    kubernetes.io/change-cause: version 1.16.0
+spec:                    <--- deployment 생성필요한 자세한 속성 
+  replicas: 3           <--- 배포될 파드 수 
+  strategy:             <-- 업데이트 전략(방법)
+    type: RollingUpdate
+  selector:              <---- app: deploy-nginx 레이블을 가지는 파드 선택 
+    matchLabels:
+      app: deploy-nginx
+  template:            <---- 파드를 생성하기 위한 구문 
+    metadata:
+      labels:
+        app: deploy-nginx
+    spec:
+      containers:
+      - name: deploy-nginx
+        image: nginx:1.16.0
+        ports:
+        - containerPort: 80
+
+# kubetctl get deployment,pods 
+# kubectl apply -f deploy-nginx.yaml 
+	(create,update )
+
+
+update ---> rollback
+nginx:1.16.0 --> nginx:1.20.0 
+# nano deploy-nginx.yaml 
+  annotations:
+    kubernetes.io/change-cause: version 1.16.0
+			--> version 1.20.0	(수정)
+............
+      containers:
+      - name: deploy-nginx
+        image: nginx:1.16.0
+	--> nginx:1.20.0 (수정)
+
+ctrl+o(저장) --> enter ---> ctrl+x(종료)
+
+# kubectl apply -f deploy-nginx.yaml 
+# kubectl rollout history deployment deploy-nginx 
+deployment.apps/deploy-nginx 
+REVISION  CHANGE-CAUSE
+1         version 1.16.0
+2         version 1.20.0
+
+# kubectl rollout undo deployment deploy-nginx 
+
+실습 환경 접근 
+
+https://killercoda.com/
+	--> 로그인
+	--> playgrounds
+	--> Kubernetes 1.25 
+
+
+Service 실습 
+==================
+terminal 2 # watch -n 1 kubectl get service,deployment,pods -o wide 
+terminal 2 # watch -n 1 kubectl get svc,deploy,po -o wide 
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   12h   <none>
+
+1) Deployment 를 사용해서 pods 사전 배포 
+# kubectl create deployment deploy-nginx --image takytaky/hostname --replicas 2
+# kubectl get pods -o wide 
+
+#  curl -sf http://192.168.1.3 | grep Hello
+        <p>Hello,  deploy-nginx-6c54d4cbbd-67kf2</p>    </blockquote>	
+
+# curl -sf http://192.168.0.7 | grep Hello
+        <p>Hello,  deploy-nginx-6c54d4cbbd-6ww99</p>    </blockquote>
+
+# kubectl delete pods deploy-nginx-6c54d4cbbd-67kf2
+
+# kubectl expose deployment deploy-nginx --target-port=80 --port=80 
+--name svc-nginx 
+
+# curl -sf http://10.109.21.206 | grep Hello 
+# kubectl scale deployment deploy-nginx --replicas 3
+# curl -sf http://10.109.21.206 | grep Hello 
+
+# kubectl scale deployment deploy-nginx --replicas 2
+# curl -sf http://10.109.21.206 | grep Hello 
+# ip addr 
+enp1s0
+	--> 172.30.1.2/24
+
+# kubectl delete service svc-nginx 
+# kubectl expose deployment deploy-nginx --port=80 --target-port=80 
+--type NodePort --name svc-nginx 
+
+# kubectl get svc -o wide 
+service/svc-nginx    NodePort    10.110.13.171   <none>        80:31602/TCP   17s   app=deploy-n
+ginx
+
+$ curl -sf http://10.110.13.171:80 | grep Hello 
+        <p>Hello,  deploy-nginx-6c54d4cbbd-h5fsz</p>    </blockquote>
+$ curl -sf http://10.110.13.171:80 | grep Hello 
+        <p>Hello,  deploy-nginx-6c54d4cbbd-6ww99</p>    </blockquote>
+
+	Traffic/ port 
+		31602
+
+Deployment, Service를 yaml 템플렛을 통해서 배포 
+---------------------------------------------------------------
+$ wget http://3.35.136.179/hostname-server.yaml
+$ wget http://3.35.136.179/nodeport-hostname.yaml 
+$ cat hostname-server.yaml
+apiVersion: apps/v1
+kind: Deployment          <----- yaml 템플릿으로 객체 타입
+metadata:
+  name: hostname-server  <--- deployment 이름 
+  labels:
+    app: hostname-server
+spec:
+  replicas: 2              <---- 실행 상태를 유지할 파드의 수 
+  selector:                 <-- 실행 상태를 유지할 파드를 선택할 셀렉터 
+    matchLabels:
+      app: hostname-server
+  template:   <--- 생성될 파드의 템플릿 
+    metadata:
+      labels:
+        app: hostname-server
+    spec:
+      containers:                 <--- pod 형태 배포될 컨테이너의 속성 
+      - name: hostname-server
+        image: takytaky/hostname   <-- 연결된 파드의이름이 메인화면에 출력될 웹서비스
+        ports:
+        - containerPort: 80              <-- 컨테이너가 수신할 포트 번호 
+
+$ kubectl apply -f hostname-server.yaml 
+
+$ cat nodeport-hostname.yaml 
+apiVersion: v1
+kind: Service                         <----- 생성될 객체의 타입 
+metadata:
+  name: nodeport-hostname-service   <---- 서비스 이름 
+spec:
+  type: NodePort          <------ ClusterIP(클러스터 내부) , NodePort(클러스내부/외부)
+  selector:                    <--- 서비스가 수신한 요청을 전달 파드 셀렉터 
+    app: hostname-server
+  ports:
+  - protocol: TCP
+    port: 80              <--- 서비스가 수신할 포트 번호 
+    targetPort: 80      <---- 컨테이너가 수신할 포트 번호 
+    nodePort: 30080   <--- 클러스터 외부에서 요청 수신할 노드의 포트 번호 
+
+# kubectl apply -f nodeport-hostname.yaml 
+$ kubectl get svc -o wide 
+NAME                        TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE   SELECTOR
+nodeport-hostname-service   NodePort    10.100.129.16   <none>        80:30080/TCP   63s   app=hostname-server
+
+$ curl -sf http://10.100.129.16:80  | grep Hello 

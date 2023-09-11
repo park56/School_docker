@@ -1,0 +1,82 @@
+Docker 강의 : 3일차, 컨테이너 이미지 제작, 볼륨 제작
+
+docker container exec -it web /bin/bash
+// web의 bin/bash를 실행하고 입출력터미널 할당 
+
+curl -sf http://localhost:8080 == curl -sf http://127.0.0.1
+// 127.0.0.1은 자신을 가르킴
+
+// ========================================================================================
+// 컨테이너 볼륨 사용
+// 볼륨 - 영구적 저장 공간, 컨테이너와 이미지는 영구X
+
+mkdir data
+mkdir read
+docker container run -it --name v1 -v /Users/sunghan/data:/data:rw -v /Users/sunghan/read:/read:rw centos
+//  컨테이너:/  ==> 컨테이너 안에 파일 || -v == 볼륨으로 로컬파일과 연결 || :ro == readOnly, rw == read write, 안적으면 rw
+// -v 뒤에 ==> 내 로컬파일주소:/컨테이너 안의 파일명
+ 
+docker volume ls
+docker volume create datavol
+docker volume inspect datavol
+// mount point == > mac에서는 docker를 실행할 때 vm을 통해 실행하기 때문에 "/var/lib/..." 이 주소는 가상 머신 안의 주소이다.
+docker container run -it --name v2 -v datavol:/data centos
+docker volume rm datavol
+
+wget -O index.html http://info.cern.ch // curl 대용품
+
+// 볼륨 이용한 nginx 웹 서버 배포 2가지 방법 
+// 1
+docker container run -d --name myweb2 -v /Users/sunghan/kerdoc:/usr/share/nginx/html -p 8181:80 nginx
+docker container cp index.html myweb2:/usr/share/nginx/html/index.html
+docker container rm -f myweb2
+docker container run -d --name myweb2 -v /Users/sunghan/kerdoc:/usr/share/nginx/html -p 8181:80 nginx 
+
+// 2
+docker container run -d --name myweb -v /Users/sunghan/kerdoc:/usr/share/nginx/html -p 8080:80 nginx
+docker container rm -f myweb
+docker container run -d --name myweb -v /Users/sunghan/kerdoc:/usr/share/nginx/html -p 8080:80 nginx
+
+// ====================================================================================
+// 이미지 생성
+
+docker image ls
+docker image pull nginx:1.22.0	// 이미지 풀 버전 지정
+doker image inspect nginx:1.22.0 // 뒤에 태크안붙이면 자동 latest
+docker image rm 이미지이름
+docker image rmi 이미지이름
+
+docker login // docker hub에 접근하기 위해서는 로그인이 필수
+	--> /root/.docker/config.json 을 참조해 자동 로그인
+docker logout 
+	--> 위 주소의 정보 삭제 & hub.docker.com 로그아웃
+
+docker tag alpine:3.15 docker.io/(도커id)/이미지이름:v1 	// 이미지 이름을 추가, docker.io는 기본 경로
+docker tage alpine:3.15 docker.io/s5d2f66a/psh:v1
+
+docker image push docker.io/s5d2f66a/psh
+
+// 이미지 생성
+commit - 수동
+build - 자동
+
+// commit
+docker container run -it --name sample ubuntu
+	apt-get update
+	apt-get install -y nginx
+	detach 실행 
+echo "Hello world" > index.html
+docker container cp index.html sample:/var/www/html/index.html
+docker container commit -a "PSH" -m "Customized Web image" sample s5d2f66a/psh-web:v1 	// -a (author) -m (message), s5d2f66a == 필수로 계정명
+docker image push s5d2f66a/psh-web:v1
+docker container run -d --name webserver -p 8080:80 s5d2f66a/psh-web:v1 nginx -g "daemon off; "	// nginx를 실행할 때의 파일을 설정 && 백그라운드에서 돌아가지 않도록
+
+// build
+git clone https://github.com/rusita-ai.labfile.git
+cd labfile/dockerfile_dir
+cat Dockerfile.1
+
+echo Hello world > index.html
+docker build -t web-img:1.0 -f Dockerfile.1 .	// -f는 빌드할 파일명 && 도커 파일은 D로 시작하고 폴더당 1개라 이름생략 가능, 파일명 뒤에는 그 파일이 있는 경로
+docker tage web-img:1.0 docker.io/s5d2f66a/web-img:v1
+docker image push s5d2f66a/web-img:v1
